@@ -3,4 +3,8 @@ gradle
 .gradle
 out
 .idea
-minidata/*
+minidata
+target
+libs
+lib
+derby.log
