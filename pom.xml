@@ -17,12 +17,18 @@
         <hadoop-mini-clusters-common.version>0.1.14</hadoop-mini-clusters-common.version>
         <hive.version>1.2.1000.2.6.2.0-205</hive.version>
         <kodein.version>4.1.0</kodein.version>
+        <spek-api.version>1.1.5</spek-api.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib</artifactId>
+            <version>${kotlin.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-reflect</artifactId>
             <version>${kotlin.version}</version>
         </dependency>
         <dependency>
@@ -147,18 +153,29 @@
             <version>${hadoop-mini-clusters-common.version}</version>
         </dependency>
         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>${junit.version}</version>
+            <groupId>org.jetbrains.spek</groupId>
+            <artifactId>spek-api</artifactId>
+            <version>${spek-api.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.jetbrains.kotlin</groupId>
-            <artifactId>kotlin-test-junit</artifactId>
-            <version>${kotlin.version}</version>
+            <groupId>org.jetbrains.spek</groupId>
+            <artifactId>spek-junit-platform-engine</artifactId>
+            <version>${spek-api.version}</version>
+            <scope>test</scope>
+       </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-runner</artifactId>
+            <version>1.0.0</version>
             <scope>test</scope>
         </dependency>
-
+        <dependency>
+            <groupId>com.winterbe</groupId>
+            <artifactId>expekt</artifactId>
+            <version>0.5.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

@@ -1,23 +1,28 @@
-package component
+package component.core
 
 import com.github.sakserv.minicluster.impl.HbaseLocalCluster
-import com.github.salomonbrys.kodein.KodeinInjector
+import com.github.salomonbrys.kodein.Kodein
 import com.github.salomonbrys.kodein.instance
+import component.AbstractComponent
 import info.macias.kaconf.Property
+import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hbase.HBaseConfiguration
 import service.AclService
+import service.ConfigService
+import service.FileService
+import utilities.ClusterID
 
-class HbaseClusterComponent : Component<HbaseLocalCluster> {
+class HbaseClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
 
     @Property("global.basedir")
     val baseDir = "minidata"
 
+    @Property("global.confDir")
+    val confDir = "$baseDir/conf"
+
     @Property("global.secure")
     val secure = false
-
-    @Property("kerberos.tempDir")
-    val kerberosTempDir = "embedded_kdc"
 
     @Property("hbase.masterPort")
     val hbaseMasterPort = 25000
@@ -58,12 +63,11 @@ class HbaseClusterComponent : Component<HbaseLocalCluster> {
     @Property("hbase.restThreadMin")
     val hbaseRestThreadMin = 2
 
-    override val injector: KodeinInjector = KodeinInjector()
-
-    override fun launch(configuration: Configuration) : HbaseLocalCluster{
+    lateinit var hbaseLocalCluster: HbaseLocalCluster
+    override fun launch(configuration: Configuration) {
         val hbaseConfiguration = configure(configuration)
         if (secure) prepareSecure()
-        val hbaseLocalCluster = HbaseLocalCluster.Builder()
+        hbaseLocalCluster = HbaseLocalCluster.Builder()
                 .setHbaseMasterPort(hbaseMasterPort)
                 .setHbaseMasterInfoPort(hbaseMasterInfoPort)
                 .setNumRegionServers(hbaseNumRegionServers)
@@ -82,19 +86,45 @@ class HbaseClusterComponent : Component<HbaseLocalCluster> {
                 .build()
                 .build()
         hbaseLocalCluster.start()
-        return hbaseLocalCluster
+        writeConf(hbaseLocalCluster.hbaseConfiguration)
     }
 
-    private fun configure(configuration: Configuration) : Configuration{
+    override fun dependencies(): List<ClusterID> {
+        val listOfDependencies = mutableListOf<ClusterID>(
+                ClusterID.ZOOKEEPER
+        )
+        if(secure) listOfDependencies.add(ClusterID.KDC)
+        return listOfDependencies
+    }
+
+    override fun configuration(): Configuration {
+        return hbaseLocalCluster.hbaseConfiguration
+    }
+
+    override fun stop() {
+        hbaseLocalCluster.stop(true)//To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun clean() {
+        val fileService: FileService = kodein.instance()
+        fileService.delete("$baseDir/$hbaseRootDir")
+    }
+
+    private fun configure(configuration: Configuration): Configuration {
         val hbaseConfiguration = HBaseConfiguration.create()
         hbaseConfiguration.set("hbase.defaults.for.version.skip", "true")
         hbaseConfiguration.addResource(configuration)
         return hbaseConfiguration
     }
 
-    fun prepareSecure() {
-        val aclService:AclService by instance()
+    private fun prepareSecure() {
+        val aclService: AclService = kodein.instance()
         aclService.giveAllPermissionsToZNode("/hbase-secure", zookeeperConnectionString)
+    }
+
+    private fun writeConf(configuration: Configuration) {
+        val configService: ConfigService = kodein.instance()
+        configService.createConfFile(StringUtils.EMPTY, conf = configuration, outputFilePath = "$confDir/hbase-site.xml")
     }
 
 

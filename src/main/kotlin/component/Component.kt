@@ -1,13 +1,24 @@
 package component
 
-import com.github.sakserv.minicluster.MiniCluster
-import com.github.salomonbrys.kodein.KodeinInjected
-import com.github.salomonbrys.kodein.KodeinInjector
 import org.apache.hadoop.conf.Configuration
+import utilities.ClusterID
 
-interface Component<out T> : KodeinInjected {
+interface Component {
 
-    fun launch(configuration: Configuration = Configuration()) : T
+    fun launch(configuration: Configuration = Configuration())
+
+    fun stop()
+
+    fun clean() {}
+
+    fun dependencies() : List<ClusterID> {
+        return emptyList()
+    }
+
+    fun configuration() : Configuration{
+        return Configuration()
+    }
+
 
 
 }

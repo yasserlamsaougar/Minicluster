@@ -1,11 +1,26 @@
-package component
+package component.core
 
 import com.github.sakserv.minicluster.impl.YarnLocalCluster
 import com.github.salomonbrys.kodein.Kodein
+import com.github.salomonbrys.kodein.instance
+import component.AbstractComponent
 import info.macias.kaconf.Property
+import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
+import service.ConfigService
+import service.FileService
+import utilities.ClusterID
 
-class YarnClusterComponent : AbstractComponent<YarnLocalCluster>() {
+class YarnClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
+
+    @Property("global.basedir")
+    val baseDir = "minidata"
+
+    @Property("global.confDir")
+    val confDir = "$baseDir/conf"
+
+    @Property("global.secure")
+    val secure = false
 
     @Property("yarn.numNodeManagers")
     val yarnNumNodeManagers = 1
@@ -34,10 +49,12 @@ class YarnClusterComponent : AbstractComponent<YarnLocalCluster>() {
     @Property("yarn.useInJvmContainerExecutor")
     val yarnUseInJvmContainerExecutor = false
 
+    lateinit var yarnLocalCluster: YarnLocalCluster
 
-    override fun launch(configuration: Configuration): YarnLocalCluster {
+    override fun launch(configuration: Configuration) {
         val copyConfiguration = Configuration(configuration)
-        val yarnLocalCluster = YarnLocalCluster.Builder()
+
+        yarnLocalCluster = YarnLocalCluster.Builder()
                 .setNumNodeManagers(yarnNumNodeManagers)
                 .setNumLocalDirs(yarnNumLocalDirs)
                 .setNumLogDirs(yarnNumLogDirs)
@@ -51,7 +68,29 @@ class YarnClusterComponent : AbstractComponent<YarnLocalCluster>() {
                 .build()
 
         yarnLocalCluster.start()
-        return yarnLocalCluster
+        writeConf(yarnLocalCluster.config)
     }
+
+    override fun dependencies(): List<ClusterID> {
+        val listOfDependencies = mutableListOf<ClusterID>(
+                ClusterID.HDFS
+        )
+        if (secure) listOfDependencies.add(ClusterID.KDC)
+        return listOfDependencies
+    }
+
+    override fun configuration(): Configuration {
+        return yarnLocalCluster.config
+    }
+
+    override fun stop() {
+        yarnLocalCluster.stop(true)//To change body of created functions use File | Settings | File Templates.
+    }
+
+    private fun writeConf(configuration: Configuration) {
+        val configService: ConfigService = kodein.instance()
+        configService.createConfFile(StringUtils.EMPTY, conf = configuration, outputFilePath = "$confDir/yarn-site.xml")
+    }
+
 
 }

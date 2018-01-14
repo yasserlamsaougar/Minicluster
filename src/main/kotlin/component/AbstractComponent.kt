@@ -1,7 +1,5 @@
 package component
 
-import com.github.salomonbrys.kodein.KodeinInjector
+import com.github.salomonbrys.kodein.Kodein
 
-abstract class AbstractComponent<out T> : Component<T> {
-    override val injector: KodeinInjector = KodeinInjector()
-}
+abstract class AbstractComponent(val kodein: Kodein) : Component

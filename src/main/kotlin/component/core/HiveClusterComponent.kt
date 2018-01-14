@@ -1,15 +1,25 @@
 package component
 
 import com.github.sakserv.minicluster.impl.HiveLocalServer2
+import com.github.salomonbrys.kodein.Kodein
+import com.github.salomonbrys.kodein.instance
 import info.macias.kaconf.Property
+import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hive.conf.HiveConf
+import service.ConfigService
+import service.FileService
+import utilities.ClusterID
 
 
-class HiveClusterComponent : AbstractComponent<HiveLocalServer2>() {
+class HiveClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
 
     @Property("global.basedir")
     val baseDir = "minidata"
+
+    @Property("global.confDir")
+    val confDir = "$baseDir/conf"
+
 
     @Property("global.secure")
     val secure = false
@@ -37,9 +47,10 @@ class HiveClusterComponent : AbstractComponent<HiveLocalServer2>() {
     @Property("zookeeper.connectionString")
     val zookeeperConnectionString = "127.0.0.1:6000"
 
-    override fun launch(configuration: Configuration): HiveLocalServer2 {
+    lateinit var hiveLocalServer2: HiveLocalServer2
+    override fun launch(configuration: Configuration) {
         val hiveConf = configure(configuration) as HiveConf
-        val hiveLocalServer2 = HiveLocalServer2.Builder()
+        hiveLocalServer2 = HiveLocalServer2.Builder()
                 .setHiveServer2Hostname(hiveServerHostname)
                 .setHiveServer2Port(hiveServerPort)
                 .setHiveMetastoreHostname(hiveMetaStoreHostName)
@@ -52,13 +63,34 @@ class HiveClusterComponent : AbstractComponent<HiveLocalServer2>() {
                 .build()
 
         hiveLocalServer2.start()
-        return hiveLocalServer2
+        writeConf(hiveLocalServer2.hiveConf)
     }
 
-    private fun configure(configuration: Configuration) : Configuration {
+    override fun dependencies(): List<ClusterID> {
+        val listOfDependencies = mutableListOf<ClusterID>(
+                ClusterID.HIVEMETASTORE, ClusterID.ZOOKEEPER
+        )
+        if (secure) listOfDependencies.add(ClusterID.KDC)
+        return listOfDependencies
+    }
+
+    override fun configuration(): Configuration {
+        return hiveLocalServer2.hiveConf
+    }
+
+    override fun stop() {
+        hiveLocalServer2.stop(true)//To change body of created functions use File | Settings | File Templates.
+    }
+
+    private fun configure(configuration: Configuration): Configuration {
         val hiveConf = HiveConf()
         hiveConf.addResource(configuration)
         return hiveConf
+    }
+
+    private fun writeConf(configuration: Configuration) {
+        val configService: ConfigService = kodein.instance()
+        configService.createConfFile(StringUtils.EMPTY, conf = configuration, outputFilePath = "$confDir/hive-site.xml")
     }
 
 

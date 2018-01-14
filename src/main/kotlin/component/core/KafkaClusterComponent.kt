@@ -1,11 +1,17 @@
+package component.core
+
 import com.github.sakserv.minicluster.impl.KafkaLocalBroker
+import com.github.salomonbrys.kodein.Kodein
+import com.github.salomonbrys.kodein.instance
 import component.AbstractComponent
 import component.Component
 import info.macias.kaconf.Property
 import org.apache.hadoop.conf.Configuration
+import service.FileService
+import utilities.ClusterID
 import java.util.*
 
-class KafkaClusterComponent : AbstractComponent<KafkaLocalBroker>() {
+class KafkaClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
 
     @Property("global.basedir")
     val baseDir = "minidata"
@@ -43,9 +49,10 @@ class KafkaClusterComponent : AbstractComponent<KafkaLocalBroker>() {
     @Property("ssl.trustore.password")
     val sslTruststorePassword = "trustP"
 
-    override fun launch(configuration: Configuration) : KafkaLocalBroker {
-        val properties = if(secure) prepareSecure() else Properties()
-        val kafkaLocalBroker =  KafkaLocalBroker.Builder()
+    lateinit var kafkaLocalBroker: KafkaLocalBroker
+    override fun launch(configuration: Configuration) {
+        val properties = if (secure) prepareSecure() else Properties()
+        kafkaLocalBroker = KafkaLocalBroker.Builder()
                 .setKafkaHostname(kafkaHostname)
                 .setKafkaPort(kafkaPort)
                 .setKafkaBrokerId(kafkaBrokerId)
@@ -54,11 +61,26 @@ class KafkaClusterComponent : AbstractComponent<KafkaLocalBroker>() {
                 .setZookeeperConnectionString(zookeeperConnectionString)
                 .build()
         kafkaLocalBroker.start()
-        return kafkaLocalBroker
     }
 
+    override fun dependencies(): List<ClusterID> {
+        val listOfDependencies = mutableListOf<ClusterID>(
+                ClusterID.ZOOKEEPER
+        )
+        if (secure) listOfDependencies.add(ClusterID.KDC)
+        return listOfDependencies
+    }
 
-    fun prepareSecure() : Properties {
+    override fun stop() {
+        kafkaLocalBroker.stop(true)//To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun clean() {
+        val fileService: FileService = kodein.instance()
+        fileService.delete("$baseDir/$tempDir")
+    }
+
+    private fun prepareSecure(): Properties {
         val kdcDir = "$baseDir/$kerberosTempDir"
         val advertisedListeners = "PLAINTEXT://$kafkaHostname:$kafkaPort,SASL_SSL://$kafkaHostname:$kafkaSSLPort"
         val properties = Properties()
@@ -73,5 +95,7 @@ class KafkaClusterComponent : AbstractComponent<KafkaLocalBroker>() {
         properties.setProperty("sasl.kerberos.service.name", "kafka")
         return properties
     }
+
+
 
 }

@@ -20,10 +20,6 @@ class JaasService {
         return jaas
     }
 
-    fun unset() {
-        javax.security.auth.login.Configuration.setConfiguration(null)
-    }
-
     fun writeJaas(jaas: Jaas): String {
         return jaas.entries.map({ e ->
             val key = e.key

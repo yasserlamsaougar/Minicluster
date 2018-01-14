@@ -1,13 +1,24 @@
-package component
+package component.core
 
 import clusters.KdcLocalClusterCorrected
+import com.github.salomonbrys.kodein.Kodein
+import com.github.salomonbrys.kodein.instance
+import component.AbstractComponent
 import info.macias.kaconf.Property
+import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.security.UserGroupInformation
+import service.ConfigService
+import service.FileService
+import service.JaasService
 
-class KdcClusterComponent : AbstractComponent<KdcLocalClusterCorrected>() {
+class KdcClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
 
     @Property("global.basedir")
     val baseDir = "minidata"
+
+    @Property("global.confDir")
+    val confDir = "$baseDir/conf"
 
     @Property("global.secure")
     val secure = false
@@ -39,8 +50,9 @@ class KdcClusterComponent : AbstractComponent<KdcLocalClusterCorrected>() {
     @Property("kerberos.debug")
     val kerberosDebug = false
 
-    override fun launch(configuration: Configuration) : KdcLocalClusterCorrected {
-        val kdcLocalCluster = KdcLocalClusterCorrected.Builder()
+    lateinit var kdcLocalCluster: KdcLocalClusterCorrected
+    override fun launch(configuration: Configuration) {
+        kdcLocalCluster = KdcLocalClusterCorrected.Builder()
                 .setPort(kerberosPort)
                 .setHost(kerberosHost)
                 .setBaseDir("$baseDir/$tempDir")
@@ -53,6 +65,48 @@ class KdcClusterComponent : AbstractComponent<KdcLocalClusterCorrected>() {
                 .setDebug(kerberosDebug)
                 .build()
         kdcLocalCluster.start()
-        return kdcLocalCluster
+        setSecure(kdcLocalCluster)
+        setSecureConf(kdcLocalCluster)
+        writeConf(kdcLocalCluster.baseConf!!)
     }
+
+    private fun setSecure(kdc: KdcLocalClusterCorrected) {
+        System.setProperty("java.security.krb5.conf'", kdc.krb5conf.path)
+        UserGroupInformation.setConfiguration(kdc.baseConf!!)
+
+    }
+
+    override fun configuration(): Configuration {
+        return kdcLocalCluster.baseConf!!
+    }
+
+    override fun stop() {
+        kdcLocalCluster.stop(true)//To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun clean() {
+        val fileService: FileService = kodein.instance()
+        fileService.delete("$baseDir/$tempDir")
+    }
+
+    private fun setSecureConf(kdc: KdcLocalClusterCorrected) {
+        val jaasService: JaasService = kodein.instance()
+        val globalJaas = jaasService.setJaas(
+                JaasService.JaasEntry(name = "Server", principal = kdc.getKrbPrincipal("zookeeper"), keytabPath = kdc.getKeytabForPrincipal("zookeeper"), service = "zookeeper"),
+                JaasService.JaasEntry(name = "Client", principal = kdc.getKrbPrincipal("zookeeper"), keytabPath = kdc.getKeytabForPrincipal("zookeeper")),
+                JaasService.JaasEntry(name = "KafkaServer", principal = kdc.getKrbPrincipal("kafka"), keytabPath = kdc.getKeytabForPrincipal("kafka"), service = "kafka"),
+                JaasService.JaasEntry(name = "KafkaClient", principal = kdc.getKrbPrincipal("local"), keytabPath = kdc.getKeytabForPrincipal("local"), service = "kafka")
+        )
+        val fileService: FileService = kodein.instance()
+        fileService.writeStringToFile(jaasService.writeJaas(globalJaas), confDir + "/jaas.conf")
+    }
+
+    private fun writeConf(configuration: Configuration) {
+        val configService: ConfigService = kodein.instance()
+        val fileService:FileService = kodein.instance()
+        configService.createConfFile(StringUtils.EMPTY, conf = configuration, outputFilePath = "$confDir/core-site.xml")
+        fileService.copy(kdcLocalCluster.krb5conf.absolutePath, confDir)
+        fileService.copyRegex("$baseDir/$tempDir", confDir, "keytab", "jks")
+    }
+
 }

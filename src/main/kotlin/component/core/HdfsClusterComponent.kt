@@ -1,14 +1,24 @@
+package component.core
+
 import com.github.sakserv.minicluster.impl.HdfsLocalCluster
+import com.github.salomonbrys.kodein.Kodein
+import com.github.salomonbrys.kodein.instance
 import component.AbstractComponent
-import component.Component
 import info.macias.kaconf.Property
+import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.hdfs.HdfsConfiguration
+import service.ConfigService
+import service.FileService
+import utilities.ClusterID
 
-class HdfsClusterComponent : AbstractComponent<HdfsLocalCluster>() {
+class HdfsClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
 
     @Property("global.basedir")
     val baseDir = "minidata"
+
+    @Property("global.confDir")
+    val confDir = "$baseDir/conf"
 
     @Property("global.secure")
     val secure = false
@@ -34,9 +44,10 @@ class HdfsClusterComponent : AbstractComponent<HdfsLocalCluster>() {
     @Property("hdfs.enableRunningUserAsProxyUser")
     val hdfsEnableRunningUserAsProxyUser = true
 
-    override fun launch(configuration: Configuration) : HdfsLocalCluster {
+    private lateinit var hdfsLocalCluster:HdfsLocalCluster
+    override fun launch(configuration: Configuration) {
         val hdfsConfiguration = configure(configuration)
-        val hdfsLocalCluster =  HdfsLocalCluster.Builder()
+        hdfsLocalCluster =  HdfsLocalCluster.Builder()
                 .setHdfsNamenodePort(hdfsNamenodePort)
                 .setHdfsNamenodeHttpPort(hdfsNamenodeHttpPort)
                 .setHdfsTempDir("$baseDir/$tempDir")
@@ -47,14 +58,38 @@ class HdfsClusterComponent : AbstractComponent<HdfsLocalCluster>() {
                 .setHdfsConfig(hdfsConfiguration)
                 .build()
         hdfsLocalCluster.start()
-        return hdfsLocalCluster
+        writeConf(hdfsLocalCluster.hdfsConfig)
+    }
+
+    override fun configuration(): Configuration {
+        return hdfsLocalCluster.hdfsConfig
+    }
+
+    override fun dependencies(): List<ClusterID> {
+        val listOfDependencies = mutableListOf<ClusterID>()
+        if (secure) listOfDependencies.add(ClusterID.KDC)
+        return listOfDependencies
+    }
+
+    override fun stop() {
+        hdfsLocalCluster.stop(true)//To change body of created functions use File | Settings | File Templates.
+    }
+
+    override fun clean() {
+        val fileService: FileService = kodein.instance()
+        fileService.delete("$baseDir/$tempDir")
     }
 
     private fun configure(configuration: Configuration) : Configuration{
         val hdfsConfiguration = HdfsConfiguration()
-        hdfsConfiguration.set("fs.default.name", "hdfs://127.0.0.1:$hdfsNamenodePort")
+        hdfsConfiguration.set("fs.defaultFS", "hdfs://127.0.0.1:$hdfsNamenodePort")
         hdfsConfiguration.addResource(configuration)
         return hdfsConfiguration
+    }
+
+    private fun writeConf(configuration: Configuration) {
+        val configService: ConfigService = kodein.instance()
+        configService.createConfFile(StringUtils.EMPTY, conf = configuration, outputFilePath = "$confDir/hdfs-site.xml")
     }
 
 

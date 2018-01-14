@@ -15,11 +15,13 @@ class AclService {
                 ExponentialBackoffRetry(1000, 2)).use { client ->
             client.start()
 
-            val perms = ArrayList<ACL>()
-            perms.add(ACL(ZooDefs.Perms.ALL, ZooDefs.Ids.AUTH_IDS))
-            perms.add(ACL(ZooDefs.Perms.READ, ZooDefs.Ids.ANYONE_ID_UNSAFE))
-
-            client.create().withMode(CreateMode.PERSISTENT).withACL(perms).forPath(zNodePath)
+            if(client.checkExists().forPath(zNodePath) == null) {
+                val perms = ArrayList<ACL>()
+                perms.add(ACL(ZooDefs.Perms.ALL, ZooDefs.Ids.AUTH_IDS))
+                perms.add(ACL(ZooDefs.Perms.READ, ZooDefs.Ids.ANYONE_ID_UNSAFE))
+                client.create().withMode(CreateMode.PERSISTENT).withACL(perms).forPath(zNodePath)
+            }
+            client.close()
         }
 
     }
