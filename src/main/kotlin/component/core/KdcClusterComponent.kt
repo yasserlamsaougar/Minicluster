@@ -71,7 +71,7 @@ class KdcClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
     }
 
     private fun setSecure(kdc: KdcLocalClusterCorrected) {
-        System.setProperty("java.security.krb5.conf'", kdc.krb5conf.path)
+        System.setProperty("java.security.krb5.conf", kdc.krb5conf.path)
         UserGroupInformation.setConfiguration(kdc.baseConf!!)
 
     }
