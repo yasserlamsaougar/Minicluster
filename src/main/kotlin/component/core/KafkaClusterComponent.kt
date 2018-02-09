@@ -7,6 +7,8 @@ import component.AbstractComponent
 import component.Component
 import info.macias.kaconf.Property
 import org.apache.hadoop.conf.Configuration
+import org.apache.kafka.common.serialization.StringSerializer
+import service.ConfigService
 import service.FileService
 import utilities.ClusterID
 import java.util.*
@@ -15,6 +17,9 @@ class KafkaClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
 
     @Property("global.basedir")
     val baseDir = "minidata"
+
+    @Property("global.confDir")
+    val confDir = "$baseDir/conf"
 
     @Property("global.secure")
     val secure = false
@@ -61,6 +66,7 @@ class KafkaClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
                 .setZookeeperConnectionString(zookeeperConnectionString)
                 .build()
         kafkaLocalBroker.start()
+        writeConf(kafkaLocalBroker.kafkaProperties)
     }
 
     override fun dependencies(): List<ClusterID> {
@@ -96,6 +102,14 @@ class KafkaClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
         return properties
     }
 
+    private fun writeConf(properties: Properties) {
+        val copyProperties = Properties()
+        properties.forEach { copyProperties[it.key] = it.value }
+        copyProperties.setProperty("key.serializer", StringSerializer::class.java.canonicalName)
+        copyProperties.setProperty("value.serializer", StringSerializer::class.java.canonicalName)
+        val configService: ConfigService = kodein.instance()
+        configService.createConfFile(copyProperties, "$confDir/kafka.properties", "kafka properties")
+    }
 
 
 }

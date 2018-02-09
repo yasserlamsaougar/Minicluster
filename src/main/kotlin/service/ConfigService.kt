@@ -19,4 +19,8 @@ class ConfigService {
         }
     }
 
+    fun createConfFile(properties: Properties, outputFilePath: String, comments: String = "") {
+        properties.store(Files.newOutputStream(Paths.get(outputFilePath)), comments)
+    }
+
 }

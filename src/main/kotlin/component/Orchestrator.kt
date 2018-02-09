@@ -1,9 +1,12 @@
 package component
 
 import com.github.salomonbrys.kodein.Kodein
+import com.github.salomonbrys.kodein.instance
 import component.core.*
+import hooks.Hook
 import info.macias.kaconf.Configurator
 import org.apache.hadoop.conf.Configuration
+import org.reflections.Reflections
 import utilities.ClusterID
 
 class Orchestrator(val kodein: Kodein) {
@@ -11,23 +14,26 @@ class Orchestrator(val kodein: Kodein) {
     data class ClusterData(val cluster: Component, val clusterId: ClusterID, var resolved: Boolean = false)
 
     private val idComponentMap = hashMapOf(
-            ClusterID.ZOOKEEPER to ClusterData(ZookeeperClusterComponent(kodein), ClusterID.ZOOKEEPER),
-            ClusterID.HIVEMETASTORE to ClusterData(HiveMetastoreClusterComponent(kodein), ClusterID.HIVEMETASTORE),
-            ClusterID.HIVE to ClusterData(HiveClusterComponent(kodein), ClusterID.HIVE),
-            ClusterID.HDFS to ClusterData(HdfsClusterComponent(kodein), ClusterID.HDFS),
-            ClusterID.KAFKA to ClusterData(KafkaClusterComponent(kodein), ClusterID.KAFKA),
-            ClusterID.KDC to ClusterData(KdcClusterComponent(kodein), ClusterID.KDC),
-            ClusterID.HBASE to ClusterData(HbaseClusterComponent(kodein), ClusterID.HBASE),
-            ClusterID.YARN to ClusterData(YarnClusterComponent(kodein), ClusterID.YARN)
+            ClusterID.ZOOKEEPER to ClusterData(kodein.instance<ZookeeperClusterComponent>(), ClusterID.ZOOKEEPER),
+            ClusterID.HIVEMETASTORE to ClusterData(kodein.instance<HiveMetastoreClusterComponent>(), ClusterID.HIVEMETASTORE),
+            ClusterID.HIVE to ClusterData(kodein.instance<HiveClusterComponent>(), ClusterID.HIVE),
+            ClusterID.HDFS to ClusterData(kodein.instance<HdfsClusterComponent>(), ClusterID.HDFS),
+            ClusterID.KAFKA to ClusterData(kodein.instance<KafkaClusterComponent>(), ClusterID.KAFKA),
+            ClusterID.KDC to ClusterData(kodein.instance<KdcClusterComponent>(), ClusterID.KDC),
+            ClusterID.HBASE to ClusterData(kodein.instance<HbaseClusterComponent>(), ClusterID.HBASE),
+            ClusterID.YARN to ClusterData(kodein.instance<YarnClusterComponent>(), ClusterID.YARN)
     )
 
-    fun launch(vararg ids: String, configurator: Configurator) {
+    fun launch(vararg ids: String, hooksPackages: Array<String>, configurator: Configurator) {
         idComponentMap.forEach { (_, v) ->
             configurator.configure(v.cluster)
         }
+        val filteredHooks = hooksPackages.filter { it.trim().isNotEmpty() }.toTypedArray()
         val clusterIds = clusterIdToClusterData(ids.map(String::toUpperCase).map(ClusterID::valueOf))
-
+        val hooks = getHooks(packageNames = *filteredHooks)
+        launchBefore(hooks)
         launchRecursive(clusterIds)
+        launchAfter(hooks)
     }
 
     fun stop(vararg ids: String) {
@@ -58,8 +64,24 @@ class Orchestrator(val kodein: Kodein) {
         }
     }
 
+    private fun getHooks(vararg packageNames: String): List<Hook> {
+        val setOfPackages = setOf(*packageNames, "hooks")
+        val reflections = Reflections(setOfPackages)
+        return reflections.getSubTypesOf(Hook::class.java).map {
+            it.newInstance()
+        }
+    }
+
+    private fun launchBefore(hooks: List<Hook>) {
+        hooks.forEach { it.before(kodein) }
+    }
+
+    private fun launchAfter(hooks: List<Hook>) {
+        hooks.forEach { it.after(kodein) }
+    }
+
     private fun clusterIdToClusterData(ids: List<ClusterID>): List<ClusterData> {
-        return ids.map { e ->
+        return ids.filter { idComponentMap.containsKey(it) }.map { e ->
             val clusterData = idComponentMap[e]
             clusterData
         }.requireNoNulls()

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><configuration>
+<property><name>ssl.client.truststore.reload.interval</name><value>1000</value><source>programatically</source></property>
+<property><name>ssl.client.truststore.location</name><value>minidata/embedded_kdc/trustKS.jks</value><source>programatically</source></property>
+<property><name>ssl.client.keystore.keypassword</name><value>clientP</value><source>programatically</source></property>
+<property><name>ssl.client.keystore.location</name><value>minidata/embedded_kdc/clientKS.jks</value><source>programatically</source></property>
+<property><name>ssl.client.truststore.password</name><value>trustP</value><source>programatically</source></property>
+<property><name>ssl.client.keystore.password</name><value>clientP</value><source>programatically</source></property>
+</configuration>
