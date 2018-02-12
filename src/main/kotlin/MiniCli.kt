@@ -3,7 +3,7 @@ import us.jimschubert.kopper.typed.StringArgument
 import us.jimschubert.kopper.typed.TypedArgumentParser
 
 class MiniCli(args: Array<String>) : TypedArgumentParser(args) {
-    val componentsDefault = "hdfs,kafka,hbase,hive,yarn"
+    val componentsDefault = "hdfs,kafka,hbase,yarn"
 
     val components by StringArgument(self, "c",
             default = componentsDefault,

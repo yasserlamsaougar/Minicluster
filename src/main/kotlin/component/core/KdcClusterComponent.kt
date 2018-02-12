@@ -42,10 +42,10 @@ class KdcClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
     val kerberosTransport = "TCP"
 
     @Property("kerberos.maxTicketLifetime")
-    val kerbeorsMaxTicketLifeTime = 86400000
+    val kerbeorsMaxTicketLifeTime = Int.MAX_VALUE
 
     @Property("kerberos.maxRenewableLifetime")
-    val kerberosMaxRenewableLifeTime = 604800000
+    val kerberosMaxRenewableLifeTime = Int.MAX_VALUE
 
     @Property("kerberos.debug")
     val kerberosDebug = false

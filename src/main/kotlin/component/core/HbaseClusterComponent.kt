@@ -31,7 +31,7 @@ class HbaseClusterComponent(kodein: Kodein) : AbstractComponent(kodein) {
     val hbaseMasterInfoPort = 25010
 
     @Property("hbase.numRegionServers")
-    val hbaseNumRegionServers = 2
+    val hbaseNumRegionServers = 1
 
     @Property("hbase.rootDir")
     val hbaseRootDir = "embedded_hbase"
